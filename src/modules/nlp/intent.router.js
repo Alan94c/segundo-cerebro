@@ -28,6 +28,7 @@ REGLAS ESTRICTAS:
 5. Calcula las fechas relativas o absolutas basándote en la fecha/hora UTC provista y devuélvelas SIEMPRE en formato ISO 8601 con indicador de zona UTC (añadiendo la letra 'Z' al final), por ejemplo: '2026-06-28T09:33:00Z'. Nunca omitas la 'Z'.
 6. El campo "response_to_user" debe ser cordial, breve y en español latinoamericano
 7. CRÍTICO: Si el mensaje contiene palabras como "borra", "elimina", "borrar", "eliminar", "limpiar", "cancela" seguidas de "todo", "todos", "pendientes", "recordatorios" o "tareas" → SIEMPRE usa intent=CANCELAR, NUNCA TAREA_LISTA
+8. Para la intención CONSULTA, extrae en el campo 'title' únicamente los términos o palabras clave específicos de búsqueda (ej: 'OfficeMax', 'llaves', 'Home Depot') resolviendo pronombres y basándote en la pregunta y el historial conversacional. Nunca devuelvas descripciones genéricas como 'Consulta sobre...' o 'Pregunta de...'.
 
 ESQUEMA DE RESPUESTA:
 {

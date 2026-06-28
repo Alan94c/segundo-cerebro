@@ -8,6 +8,7 @@ const calendarService = require('../calendar/calendar.service');
 const whatsappService = require('../whatsapp/whatsapp.service');
 const db = require('../../config/db');
 const historyService = require('../memory/history.service');
+const { withFallback } = require('./gemini.client');
 
 /**
  * Despacha la acción correcta según la intención clasificada por Gemini.
@@ -192,10 +193,35 @@ async function handleQuery(userId, phone, data) {
     // Búsqueda en memorias
     const memories = await memoryService.searchFacts(userId, data.title || data.description);
     if (memories.length > 0) {
-      const items = memories.slice(0, 3).map((m, i) => `${i + 1}. ${m.content}`).join('\n');
-      responseMsg = `🧠 Encontré esto en tu memoria:\n\n${items}`;
+      const memoriesContext = memories.map(m => `- ${m.content}`).join('\n');
+      
+      const prompt = `Eres el asistente de "Segundo Cerebro".
+El usuario te hizo una consulta. Basándote ÚNICAMENTE en sus recuerdos guardados (hechos extraídos de base de datos) y en su historial, responde a su pregunta de forma clara, natural, extremadamente amigable y conversacional en español.
+
+CONTESTA ÚNICAMENTE LA RESPUESTA EN TEXTO PLANO AL USUARIO (puedes usar negritas de whatsapp *texto*, listas con guiones y saltos de línea para que se vea premium).
+
+RECUERDOS DEL USUARIO ENCONTRADOS:
+${memoriesContext}
+
+PREGUNTA DEL USUARIO:
+"${data.description || data.title || searchTerm}"`;
+
+      try {
+        const geminiRes = await withFallback((textModel) => textModel.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'text/plain',
+            temperature: 0.2
+          }
+        }));
+        responseMsg = geminiRes.response.text().trim();
+      } catch (geminiErr) {
+        console.error('[Dispatcher] Error sintetizando respuesta de consulta:', geminiErr.message);
+        const items = memories.slice(0, 3).map((m, i) => `${i + 1}. ${m.content}`).join('\n');
+        responseMsg = `🧠 Encontré esto en tu memoria:\n\n${items}`;
+      }
     } else {
-      responseMsg = `🔍 No encontré información sobre "${data.title}" en tu memoria.`;
+      responseMsg = `🔍 No encontré información sobre "${data.title || searchTerm}" en tu memoria.`;
     }
   }
 
