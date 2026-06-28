@@ -205,7 +205,16 @@ async function handleCancel(userId, phone, data) {
   let responseMsg = '';
   const searchTerm = data.item_name || data.title || data.description || '';
 
-  const isAll = searchTerm.toLowerCase().includes('todo') || searchTerm.toLowerCase().includes('todos') || searchTerm.toLowerCase().includes('limpiar');
+  const termLower = searchTerm.toLowerCase();
+  const isAll = termLower.includes('todo') ||
+                termLower.includes('todos') ||
+                termLower.includes('limpiar') ||
+                termLower.includes('pendiente') ||
+                termLower.includes('pendientes') ||
+                termLower.includes('elimina') ||
+                termLower.includes('borrar') ||
+                termLower.includes('borra') ||
+                termLower === '';
   if (isAll) {
     const { rowCount: remindersDeleted } = await db.query(
       `DELETE FROM reminders WHERE user_id = $1 AND is_sent = FALSE`,
