@@ -49,9 +49,28 @@ async function sendDailyDigest() {
       `SELECT id, phone_number, name, timezone FROM users WHERE is_active = TRUE`
     );
 
+    // Obtener la hora objetivo del cron diario
+    const cronParts = DAILY_DIGEST_CRON.split(/\s+/);
+    const targetHour = cronParts.length >= 2 ? parseInt(cronParts[1], 10) : 7;
+    const now = new Date();
+
     for (const user of users) {
       try {
-        await buildAndSendDigest(user);
+        const tz = user.timezone || 'America/Mexico_City';
+        
+        // Obtener la hora local actual del usuario en formato 24h
+        const localHourStr = new Intl.DateTimeFormat('es-MX', {
+          timeZone: tz,
+          hour: 'numeric',
+          hour12: false,
+        }).format(now);
+        
+        const localHour = parseInt(localHourStr, 10);
+
+        if (localHour === targetHour) {
+          console.log(`[Scheduler] ✉️ Es hora (${localHour}:00) para el usuario ${user.phone_number} (TZ: ${tz})`);
+          await buildAndSendDigest(user);
+        }
       } catch (err) {
         console.error(`[Scheduler] Error en digest para ${user.phone_number}:`, err.message);
       }
@@ -146,15 +165,14 @@ function startScheduler() {
     name: 'reminder-check',
   });
 
-  // Job 2: Resumen diario — configurable via env (default 7 AM)
-  cron.schedule(DAILY_DIGEST_CRON, sendDailyDigest, {
-    name: 'daily-digest',
-    timezone: process.env.TZ || 'America/Mexico_City',
+  // Job 2: Resumen diario — corre cada hora en punto para verificar husos horarios locales
+  cron.schedule('0 * * * *', sendDailyDigest, {
+    name: 'daily-digest-timezone-check',
   });
 
   console.log('✅  Scheduler iniciado:');
   console.log(`   • Recordatorios: cada minuto`);
-  console.log(`   • Resumen diario: cron="${DAILY_DIGEST_CRON}" (${process.env.TZ || 'America/Mexico_City'})`);
+  console.log(`   • Resumen diario (verificación por huso horario): cada hora en punto`);
 }
 
 module.exports = { startScheduler, checkReminders, sendDailyDigest };

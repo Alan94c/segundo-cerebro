@@ -1,0 +1,161 @@
+================================================================================
+          SEGUNDO CEREBRO - GUÍA TÉCNICA DEFINITIVA Y MANUAL DE DESPLIEGUE
+================================================================================
+
+Este documento contiene toda la información técnica, enlaces, APIs configuradas 
+y el paso a paso detallado para mantener y desplegar el "Segundo Cerebro".
+
+--------------------------------------------------------------------------------
+1. RESUMEN DE LA ARQUITECTURA Y APIS PRE-CONFIGURADAS
+--------------------------------------------------------------------------------
+La aplicación es un backend inteligente escrito en Node.js/Express que actúa como 
+asistente personal operado totalmente desde WhatsApp. Utiliza Gemini AI para 
+procesamiento de lenguaje natural (NLP) e interpretación de imágenes, almacenando
+la información en PostgreSQL y sincronizándola con Google Calendar.
+
+La aplicación local en su archivo .env está pre-configurada con las siguientes
+claves y conexiones reales para un arranque inmediato (out-of-the-box):
+
+*   Base de Datos PostgreSQL (Neon Cloud DB):
+    postgresql://neondb_owner:[PASSWORD_OCULTO]@ep-square-brook-aizd57js.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
+*   Gemini API Key (Google AI Studio - Principal):
+    [CLAVE_API_GEMINI_OCULTA]
+*   Gemini API Key (Google AI Studio - Respaldo):
+    [CLAVE_API_GEMINI_RESPALDO_OCULTA]
+*   WhatsApp Phone Number ID:
+    [PHONE_NUMBER_ID_OCULTO]
+*   WhatsApp Verify Token (Webhook):
+    segundo_cerebro_webhook_2024
+*   Google OAuth2 Client ID:
+    [GOOGLE_CLIENT_ID_OCULTO].apps.googleusercontent.com
+*   Google OAuth2 Redirect URI:
+    https://segundo-cerebro-r90n.onrender.com/auth/google/callback
+
+--------------------------------------------------------------------------------
+2. PASO A PASO DE INSTALACIÓN Y CONFIGURACIÓN LOCAL
+--------------------------------------------------------------------------------
+
+PASO 1: INSTALACIÓN DE DEPENDENCIAS
+-----------------------------------
+1. Asegúrate de tener instalado Node.js 18+.
+2. Abre la terminal en el directorio del proyecto:
+   📂 C:\Users\MSI\.gemini\antigravity\scratch\segundo-cerebro
+3. Ejecuta el comando de instalación:
+   $ npm install
+
+PASO 2: INICIALIZACIÓN DE LA BASE DE DATOS
+------------------------------------------
+El sistema utiliza PostgreSQL. No necesitas instalar PostgreSQL local si usas 
+la base de datos cloud (Neon DB) configurada en el .env.
+1. Ejecuta las migraciones automáticas que crean las tablas, índices GIN 
+   de búsqueda full-text y triggers de actualización:
+   $ npm run migrate
+2. Deberías ver en consola:
+   "✅ Base de datos inicializada correctamente. Tablas y triggers creados."
+
+PASO 3: INICIO DEL SERVIDOR EN DESARROLLO
+------------------------------------------
+1. Para iniciar el servidor con auto-recarga al editar archivos (usando nodemon):
+   $ npm run dev
+2. El servidor mostrará el panel informativo:
+   ╔══════════════════════════════════════╗
+   ║       🧠 SEGUNDO CEREBRO v1.0        ║
+   ╚══════════════════════════════════════╝
+   ✅  Variables de entorno: OK
+   ✅  PostgreSQL conectado correctamente.
+   ✅  Scheduler iniciado.
+   🚀  Servidor corriendo en http://localhost:3000
+
+--------------------------------------------------------------------------------
+3. CONFIGURACIÓN DEL WEBHOOK DE WHATSAPP Y GOOGLE OAUTH2
+--------------------------------------------------------------------------------
+
+PASO A: EXPONER EL PUERTO LOCAL A INTERNET (ngrok)
+--------------------------------------------------
+Meta requiere una URL segura HTTPS para enviar los mensajes de WhatsApp:
+1. En una nueva consola ejecuta:
+   $ ngrok http 3000
+2. Copia la URL generada (ejemplo: https://ab12-34-56.ngrok-free.app).
+
+PASO B: CONFIGURACIÓN EN META FOR DEVELOPERS
+--------------------------------------------
+1. Ve al panel de control de tu aplicación en: https://developers.facebook.com/
+2. En el menú de WhatsApp -> Configuración de Webhooks:
+   *   URL de Webhook: https://TU_URL_NGROK.ngrok-free.app/webhook
+   *   Token de verificación: segundo_cerebro_webhook_2024
+3. Suscríbete al campo de webhook: "messages".
+4. Envía un mensaje desde tu WhatsApp al número configurado. ¡El sistema
+   registrará tu usuario y te enviará un mensaje de bienvenida de inmediato!
+
+PASO C: VINCULAR GOOGLE CALENDAR
+--------------------------------
+1. Obtén tu UUID de usuario desde la consola o consultando la BD:
+   $ SELECT id FROM users WHERE phone_number = 'TU_NUMERO_DE_WHATSAPP';
+2. Abre la URL en el navegador:
+   http://localhost:3000/auth/google?userId=TU_UUID_DE_USUARIO
+   (En producción, reemplaza localhost:3000 con tu dominio real).
+3. Acepta los permisos de Google. Recibirás un mensaje de WhatsApp confirmando
+   que la vinculación ha sido un éxito.
+
+--------------------------------------------------------------------------------
+4. ESTRUCTURA DE LA BASE DE DATOS (PostgreSQL)
+--------------------------------------------------------------------------------
+El archivo SQL 📂 src/db/migrations/001_initial_schema.sql crea 8 tablas:
+
+1.  users: Almacena números de WhatsApp únicos y configuraciones de zona horaria.
+2.  google_tokens: Guarda los tokens de acceso y refresh OAuth2 de Google.
+3.  memories: Memoria semántica a largo plazo con índices GIN para búsqueda rápida.
+4.  inventory_items: Control 5S de objetos físicos con su ubicación exacta.
+5.  lists: Agrupaciones de tareas (ej: Súper, Trabajo, Personal).
+6.  list_members: Compartir listas entre múltiples usuarios.
+7.  tasks: Pendientes, con fecha de vencimiento y prioridad.
+8.  reminders: Agenda de recordatorios, escaneada por el scheduler cada minuto.
+9.  media_extractions: Registros de extracciones OCR realizadas con Gemini Vision.
+
+--------------------------------------------------------------------------------
+5. MANUAL DE USO: INTERACCIÓN EN LENGUAJE NATURAL
+--------------------------------------------------------------------------------
+El sistema utiliza Gemini AI para clasificar mensajes automáticamente en base a:
+
+*   Memoria a Largo Plazo:
+    - "El PIN del candado es 4812"
+    - "Recuerda que la junta de vecinos se pospuso"
+*   Recordatorios Automáticos:
+    - "Recuérdame sacar la basura a las 8pm"
+    - "Avísame mañana a las 9:30am que debo llamar al doctor"
+*   Tareas y Listas:
+    - "Agregar leche y pan a la lista del súper"
+    - "Añadir terminar reporte a mis pendientes"
+*   Eventos del Calendario:
+    - "Reunión con el equipo el viernes a las 3pm"
+    - "Mantenimiento CCTV mañana a las 4pm"
+*   Control de Inventario (5S):
+    - "Guardé los cables HDMI en el cajón 3"
+    - "¿Dónde están los cables HDMI?" (Gemini los busca en tu inventario)
+*   Cancelar y Limpiar:
+    - "Cancela el recordatorio de las llamadas"
+    - "Eliminar la tarea de limpiar"
+    - "Limpiar todo" (Cancela todos los recordatorios y tareas pendientes)
+*   Imágenes y Documentos (Gemini Vision):
+    - Envía una foto de un recibo o nota física. Gemini extraerá la fecha, el 
+      total pagado, el comercio y creará un registro de memoria automáticamente.
+
+--------------------------------------------------------------------------------
+6. ENLACES Y RECURSOS DE UTILIDAD
+--------------------------------------------------------------------------------
+
+*   Consola de Meta for Developers:
+    https://developers.facebook.com/
+*   Consola de Google Cloud Platform (Habilitar Calendar API y OAuth):
+    https://console.cloud.google.com/
+*   Google AI Studio (Administrar API Keys de Gemini):
+    https://aistudio.google.com/
+*   Neon PostgreSQL (Gestión de base de datos cloud):
+    https://neon.tech/
+*   Servidor en Producción (Render):
+    https://segundo-cerebro-r90n.onrender.com/api/v1/health
+
+================================================================================
+ÚLTIMA ACTUALIZACIÓN: 2026-06-28
+DESARROLLADO POR: ANTIGRAVITY COOPERATIVE AI
+================================================================================

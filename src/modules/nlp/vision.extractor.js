@@ -4,7 +4,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { WHATSAPP_TOKEN } = require('../../config/env');
+const { WHATSAPP_TOKEN, WHATSAPP_API_VERSION } = require('../../config/env');
 const { withFallback } = require('./gemini.client');
 
 // Prompt del sistema para extracción de entidades desde imágenes
@@ -37,7 +37,7 @@ Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
 async function downloadWhatsAppMedia(mediaId) {
   // 1. Obtener la URL de descarga del media
   const metaRes = await axios.get(
-    `https://graph.facebook.com/v19.0/${mediaId}`,
+    `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${mediaId}`,
     { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` } }
   );
 
