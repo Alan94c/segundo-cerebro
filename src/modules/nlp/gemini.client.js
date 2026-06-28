@@ -37,34 +37,49 @@ const backup    = GEMINI_API_KEY_BACKUP ? createModels(GEMINI_API_KEY_BACKUP) : 
 
 let usingBackup = false;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * Ejecuta una llamada a Gemini con fallback automático.
- * Si la clave principal devuelve 429, cambia a la clave de respaldo.
+ * Ejecuta una llamada a Gemini con fallback automático y reintentos para errores temporales (429/503).
  * @param {Function} fn - async (textModel, visionModel) => result
  */
 async function withFallback(fn) {
-  const current = usingBackup && backup ? backup : primary;
+  let retries = 3;
+  let delay = 1000;
 
-  try {
-    const result = await fn(current.textModel, current.visionModel, current.genAI);
-    // Si estábamos en backup y funcionó, log informativo
-    if (usingBackup) {
-      console.log('[Gemini] ✅ Respondiendo con clave de respaldo');
+  while (retries > 0) {
+    const current = usingBackup && backup ? backup : primary;
+    try {
+      const result = await fn(current.textModel, current.visionModel, current.genAI);
+      if (usingBackup) {
+        console.log('[Gemini] ✅ Respondiendo con clave de respaldo');
+      }
+      return result;
+    } catch (err) {
+      const errStatus = err?.status || (err?.message && err.message.includes('429') ? 429 : err.message.includes('503') ? 503 : null);
+      const isTransient = errStatus === 429 || errStatus === 503 || 
+                          (err?.message && (err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('temp') || err.message.toLowerCase().includes('demand')));
+
+      retries--;
+
+      // Si es error de cuota 429 y tenemos backup sin usar, cambiamos a backup inmediatamente sin esperar
+      if (errStatus === 429 && backup && !usingBackup) {
+        console.warn('[Gemini] ⚠️ Clave principal agotada (429). Cambiando a clave de respaldo...');
+        usingBackup = true;
+        retries++; // No consumimos reintento al cambiar de clave
+        continue;
+      }
+
+      // Si es un error transitorio y quedan reintentos, esperamos y reintentamos
+      if (isTransient && retries > 0) {
+        console.warn(`[Gemini] ⚠️ Error temporal (${errStatus || err.message}). Reintentando en ${delay}ms... (Intentos restantes: ${retries})`);
+        await sleep(delay);
+        delay *= 2; // Backoff exponencial
+        continue;
+      }
+
+      throw err;
     }
-    return result;
-  } catch (err) {
-    const isQuotaError = err?.status === 429 ||
-      (err?.message && err.message.includes('429')) ||
-      (err?.message && err.message.toLowerCase().includes('quota'));
-
-    if (isQuotaError && backup && !usingBackup) {
-      console.warn('[Gemini] ⚠️  Clave principal agotada (429). Cambiando a clave de respaldo...');
-      usingBackup = true;
-      // Reintenta con el backup
-      return await fn(backup.textModel, backup.visionModel, backup.genAI);
-    }
-
-    throw err;
   }
 }
 
