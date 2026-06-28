@@ -61,7 +61,25 @@ He completado una segunda revisión exhaustiva y he corregido tres errores crít
 
 ---
 
+### 4. Historial de Chat Contextual y Síntesis de Respuestas Conversacionales
+
+*   **Archivos Modificados:** 
+    *   [history.service.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/memory/history.service.js) [NEW]
+    *   [webhook.controller.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/webhook/webhook.controller.js)
+    *   [action.dispatcher.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/nlp/action.dispatcher.js)
+    *   [intent.router.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/nlp/intent.router.js)
+    *   [memory.service.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/memory/memory.service.js)
+*   **Detalle:** El bot evaluaba los mensajes de forma totalmente aislada y respondía consultas imprimiendo textualmente los registros guardados en base de datos.
+*   **Corrección:**
+    1.  **Contexto Conversacional:** Se implementó una tabla y servicio de historial para registrar y pasar a Gemini los últimos 6 mensajes del chat. Esto permite resolver pronombres y comprender preguntas de seguimiento (ej: *"¿Qué productos tiene?"*).
+    2.  **Extracción de Keywords Limpia:** Añadida la regla 8 al router NLP para extraer solo términos clave específicos (ej: `"OfficeMax"`) en lugar de resúmenes genéricos (ej: `"Consulta sobre ticket"`).
+    3.  **Búsqueda Difusa en Español:** Modificado `searchFacts` para filtrar stopwords y unir los términos clave con `OR` (`|`) en lugar de `AND` (`&`), logrando búsquedas más tolerantes a errores y sinónimos.
+    4.  **Síntesis de Respuestas Inteligentes:** Modificado `handleQuery` en el dispatcher para que, al encontrar coincidencias en la memoria, entregue la información y la pregunta a Gemini. Gemini redacta una respuesta conversacional fluida y bien formateada (en lugar de imprimir el texto crudo de la BD).
+
+---
+
 ## Plan de Verificación y Resultados
 
 *   **Análisis Sintáctico:** Se ejecutó `node --check` en cada archivo modificado para corroborar la validez de la sintaxis. Todos pasaron sin errores.
 *   **Prueba de Despliegue:** Se subieron los cambios a GitHub, lo cual activó una reconstrucción y actualización exitosa en Render.
+
