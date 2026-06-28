@@ -16,6 +16,9 @@ const memoryService = require('../memory/memory.service');
  * Responde 200 inmediatamente (requisito de Meta) y procesa en background.
  */
 async function handleIncoming(req, res) {
+  console.log('[Webhook] 📥 Petición POST recibida en el webhook');
+  console.log('[Webhook] Payload body:', JSON.stringify(req.body, null, 2));
+
   // Meta requiere 200 en < 5 segundos — responder PRIMERO, procesar después
   res.status(200).send('EVENT_RECEIVED');
 
