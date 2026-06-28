@@ -95,10 +95,12 @@ async function processTextMessage(user, phoneNumber, text) {
   // Ignorar mensajes muy cortos o de estado
   if (!text || text.trim().length < 2) return;
 
-  // Clasificar intención con Gemini
+  // Clasificar intención con Gemini, inyectando la fecha y hora actual para cálculos relativos
+  const now = new Date();
+  const localTimeStr = now.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
   const intentResult = await classifyIntent(
     text,
-    `Nombre del usuario: ${user.name || phoneNumber}`
+    `Nombre del usuario: ${user.name || phoneNumber}\nFecha y hora actual (local): ${localTimeStr}\nFecha y hora actual (UTC): ${now.toISOString()}`
   );
 
   // Despachar la acción correspondiente
