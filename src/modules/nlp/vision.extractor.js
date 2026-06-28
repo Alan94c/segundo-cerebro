@@ -12,21 +12,21 @@ const VISION_SYSTEM_PROMPT = `
 Eres un experto en extracción de información de documentos e imágenes.
 Analiza la imagen proporcionada y extrae TODAS las entidades relevantes.
 
-Responde ÚNICAMENTE con un objeto JSON con la siguiente estructura:
+Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura:
 {
   "document_type": "factura | recibo | diagrama | evento | producto | otro",
   "summary": "Descripción breve de lo que muestra la imagen",
   "entities": {
     "dates": ["2024-01-15"],
-    "amounts": [{"value": 1500.00, "currency": "MXN", "description": "total"}],
-    "contacts": [{"name": "Nombre", "phone": "5551234567", "email": "a@b.com"}],
-    "locations": ["Calle 5 de Mayo #123, CDMX"],
-    "products": [{"name": "Cable UTP Cat6", "quantity": 10, "unit": "metros"}],
-    "companies": ["Empresa XYZ S.A. de C.V."],
+    "amounts": ["$182.80 MXN total", "$21.08 IVA"],
+    "contacts": ["Margarita Garcia - cajera"],
+    "locations": ["OfficeMax Operadora MX, Ciudad de Mexico"],
+    "products": ["Marcador EXPO EXT FINO NEGRO x1"],
+    "companies": ["OfficeMax"],
     "other": []
   },
-  "suggested_action": "MEMORIA_LARGO_PLAZO | TAREA_LISTA | EVENTO_CALENDARIO | INVENTARIO_5S",
-  "raw_text": "Todo el texto visible en la imagen"
+  "suggested_action": "MEMORIA_LARGO_PLAZO",
+  "raw_text": "Todo el texto visible en la imagen en una sola línea"
 }
 `.trim();
 

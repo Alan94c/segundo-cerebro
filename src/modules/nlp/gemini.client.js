@@ -19,11 +19,12 @@ function createModels(apiKey) {
         maxOutputTokens: 2048,
       },
     }),
-    // Vision sin JSON forzado — el JSON viene dentro del texto libre
+    // Vision con JSON forzado para garantizar respuesta válida
     visionModel: genAI.getGenerativeModel({
       model: GEMINI_MODEL,
       generationConfig: {
-        temperature: 0.2,
+        responseMimeType: 'application/json',
+        temperature: 0.1,
         maxOutputTokens: 4096,
       },
     }),
