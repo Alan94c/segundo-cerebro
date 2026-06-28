@@ -82,9 +82,12 @@ async function extractFromImage(mediaId) {
 
     let responseText = result.response.text().trim();
 
-    // Extraer JSON si viene envuelto en markdown ```json ... ```
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) responseText = jsonMatch[1].trim();
+    // Extraer JSON robusto: buscar primer { y último } sin importar el markdown
+    const firstBrace = responseText.indexOf('{');
+    const lastBrace  = responseText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      responseText = responseText.slice(firstBrace, lastBrace + 1);
+    }
 
     return JSON.parse(responseText);
   } catch (err) {
