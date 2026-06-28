@@ -159,14 +159,34 @@ async function handleInventory(userId, phone, data) {
 
 async function handleQuery(userId, phone, data) {
   let responseMsg = '';
+  const searchTerm = data.item_name || data.title || data.description || '';
 
   if (data.query_type === 'inventory') {
-    const searchTerm = data.item_name || data.title || data.description;
-    const item = await inventoryService.findItem(userId, searchTerm);
+    const searchTermObj = data.item_name || data.title || data.description;
+    const item = await inventoryService.findItem(userId, searchTermObj);
     if (item) {
       responseMsg = `📦 *${item.item_name}*\n📍 Ubicación: _${item.current_location}_\n🕐 Visto por última vez: ${new Date(item.last_seen_at).toLocaleString('es-MX')}`;
     } else {
-      responseMsg = `🔍 No encontré ningún objeto que coincida con "${searchTerm}". ¿Puedes ser más específico?`;
+      responseMsg = `🔍 No encontré ningún objeto que coincida con "${searchTermObj}". ¿Puedes ser más específico?`;
+    }
+  } else if (data.query_type === 'tasks' || searchTerm.toLowerCase().includes('tarea') || searchTerm.toLowerCase().includes('pendiente')) {
+    const tasks = await taskService.getTasks(userId, null, 'pending');
+    if (tasks.length > 0) {
+      const items = tasks.slice(0, 5).map((t, i) => `${i + 1}. [${t.priority.toUpperCase()}] ${t.title}${t.list_name ? ` (Lista: ${t.list_name})` : ''}`).join('\n');
+      responseMsg = `📝 *Tus tareas pendientes:*\n\n${items}`;
+    } else {
+      responseMsg = `✅ No tienes ninguna tarea pendiente.`;
+    }
+  } else if (data.query_type === 'reminders' || searchTerm.toLowerCase().includes('recordatorio') || searchTerm.toLowerCase().includes('alarma') || searchTerm.toLowerCase().includes('cola')) {
+    const reminders = await reminderService.getUpcomingReminders(userId);
+    if (reminders.length > 0) {
+      const items = reminders.slice(0, 5).map((r, i) => {
+        const localTime = new Date(r.scheduled_at).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+        return `${i + 1}. *${r.message}* (Programado: ${localTime})`;
+      }).join('\n');
+      responseMsg = `⏰ *Tus recordatorios pendientes en cola:*\n\n${items}`;
+    } else {
+      responseMsg = `✅ No tienes recordatorios programados en cola.`;
     }
   } else {
     // Búsqueda en memorias

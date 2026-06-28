@@ -42,7 +42,7 @@ ESQUEMA DE RESPUESTA:
     "tags": ["etiqueta1", "etiqueta2"],
     "priority": "low | normal | high | urgent",
     "related_contact": "número o nombre si menciona a alguien más" | null,
-    "query_type": "inventory | memory | tasks" | null
+    "query_type": "inventory | memory | tasks | reminders" | null
   },
   "response_to_user": "Mensaje amigable confirmando la acción o respondiendo la consulta"
 }
