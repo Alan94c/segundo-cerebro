@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { WHATSAPP_TOKEN } = require('../../config/env');
-const { visionModel } = require('./gemini.client');
+const { withFallback } = require('./gemini.client');
 
 // Prompt del sistema para extracción de entidades desde imágenes
 const VISION_SYSTEM_PROMPT = `
@@ -73,17 +73,19 @@ async function extractFromImage(mediaId) {
     // Leer imagen como base64
     const imageData = fs.readFileSync(fp).toString('base64');
 
-    const result = await visionModel.generateContent([
-      VISION_SYSTEM_PROMPT,
-      {
-        inlineData: {
-          mimeType,
-          data: imageData,
-        },
-      },
-    ]);
+    const result = await withFallback((_, visionModel) =>
+      visionModel.generateContent([
+        { text: VISION_SYSTEM_PROMPT },
+        { inlineData: { mimeType, data: imageData } },
+      ])
+    );
 
-    const responseText = result.response.text();
+    let responseText = result.response.text().trim();
+
+    // Extraer JSON si viene envuelto en markdown ```json ... ```
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) responseText = jsonMatch[1].trim();
+
     return JSON.parse(responseText);
   } catch (err) {
     console.error('[VisionExtractor] Error al procesar imagen:', err.message);
