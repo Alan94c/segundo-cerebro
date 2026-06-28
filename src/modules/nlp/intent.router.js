@@ -25,7 +25,7 @@ REGLAS ESTRICTAS:
 2. Si el mensaje menciona fecha/hora + tarea = RECORDATORIO (no TAREA_LISTA)
 3. Si el mensaje menciona fecha/hora + evento social/trabajo = EVENTO_CALENDARIO
 4. Para INVENTARIO_5S con pregunta de "¿dónde está X?" usa intent=CONSULTA y query_type="inventory"
-5. Extrae entidades de fecha SIEMPRE en formato ISO 8601
+5. Calcula las fechas relativas o absolutas basándote en la fecha/hora UTC provista y devuélvelas SIEMPRE en formato ISO 8601 con indicador de zona UTC (añadiendo la letra 'Z' al final), por ejemplo: '2026-06-28T09:33:00Z'. Nunca omitas la 'Z'.
 6. El campo "response_to_user" debe ser cordial, breve y en español latinoamericano
 
 ESQUEMA DE RESPUESTA:
@@ -35,7 +35,7 @@ ESQUEMA DE RESPUESTA:
   "extracted_data": {
     "title": "Título o resumen corto de la acción",
     "description": "Descripción completa extraída del mensaje",
-    "datetime": "2024-01-15T14:00:00" | null,
+    "datetime": "2024-01-15T14:00:00Z" | null,
     "list_name": "Nombre de la lista si aplica" | null,
     "item_name": "Nombre del objeto (para inventario)" | null,
     "location": "Ubicación del objeto (para inventario)" | null,
