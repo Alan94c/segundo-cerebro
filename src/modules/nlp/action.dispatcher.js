@@ -201,10 +201,26 @@ async function handleQuery(userId, phone, data) {
 
   await whatsappService.sendTextMessage(phone, responseMsg);
 }
-
 async function handleCancel(userId, phone, data) {
   let responseMsg = '';
-  const searchTerm = data.item_name || data.title || data.description;
+  const searchTerm = data.item_name || data.title || data.description || '';
+
+  const isAll = searchTerm.toLowerCase().includes('todo') || searchTerm.toLowerCase().includes('todos') || searchTerm.toLowerCase().includes('limpiar');
+  if (isAll) {
+    const { rowCount: remindersDeleted } = await db.query(
+      `DELETE FROM reminders WHERE user_id = $1 AND is_sent = FALSE`,
+      [userId]
+    );
+    const { rowCount: tasksDeleted } = await db.query(
+      `DELETE FROM tasks WHERE assigned_to = $1 AND status = 'pending'`,
+      [userId]
+    );
+    responseMsg = `🗑️ *Base de datos limpia:*\n` +
+                  `- Recordatorios cancelados: *${remindersDeleted}*\n` +
+                  `- Tareas pendientes eliminadas: *${tasksDeleted}*`;
+    await whatsappService.sendTextMessage(phone, responseMsg);
+    return;
+  }
 
   if (data.query_type === 'inventory') {
     const item = await inventoryService.findItem(userId, searchTerm);
@@ -217,9 +233,8 @@ async function handleCancel(userId, phone, data) {
       responseMsg = `🔍 No encontré ningún objeto en el inventario que coincida con "${searchTerm}".`;
     }
   } else if (data.query_type === 'tasks') {
-    // Cancelar tarea
     const { rows } = await db.query(
-      `SELECT * FROM tasks WHERE user_id = $1 AND is_completed = FALSE AND (title ILIKE $2 OR description ILIKE $2) LIMIT 1`,
+      `SELECT * FROM tasks WHERE assigned_to = $1 AND status = 'pending' AND (title ILIKE $2 OR description ILIKE $2) LIMIT 1`,
       [userId, `%${searchTerm}%`]
     );
     if (rows.length > 0) {
@@ -230,8 +245,6 @@ async function handleCancel(userId, phone, data) {
       responseMsg = `🔍 No encontré ninguna tarea pendiente que coincida con "${searchTerm}".`;
     }
   } else {
-    // Por defecto: recordatorios (reminders)
-    // Buscar un recordatorio activo
     const { rows } = await db.query(
       `SELECT * FROM reminders WHERE user_id = $1 AND is_sent = FALSE AND message ILIKE $2 ORDER BY scheduled_at ASC LIMIT 1`,
       [userId, `%${searchTerm}%`]
