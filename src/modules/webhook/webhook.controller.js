@@ -138,6 +138,14 @@ async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
     const entityCount = Object.values(extracted.entities || {})
       .flat().filter(Boolean).length;
 
+    // Si hubo error, mostrarlo para debug
+    if (extracted.error) {
+      await whatsappService.sendTextMessage(phoneNumber,
+        `⚠️ *Error al analizar imagen:*\n\`${extracted.error}\``
+      );
+      return;
+    }
+
     const response = `
 ✅ *Imagen procesada*
 📄 Tipo: ${extracted.document_type}
