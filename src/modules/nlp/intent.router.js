@@ -16,6 +16,7 @@ INTENCIONES DISPONIBLES:
 - EVENTO_CALENDARIO: El usuario menciona un evento, cita, reunión, mantenimiento o actividad con fecha/hora para el calendario
 - INVENTARIO_5S: El usuario registra o pregunta por la ubicación física de un objeto o herramienta
 - CONSULTA: El usuario hace una pregunta sobre información previamente guardada
+- CANCELAR: El usuario quiere eliminar, borrar, cancelar o desactivar un recordatorio, tarea, evento o ítem de inventario
 - CONVERSACION: Saludo, agradecimiento o mensaje informal sin acción específica
 - DESCONOCIDO: No se puede determinar la intención con claridad
 

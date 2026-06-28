@@ -6,6 +6,7 @@ const taskService = require('../tasks/list.service');
 const reminderService = require('../tasks/reminder.service');
 const calendarService = require('../calendar/calendar.service');
 const whatsappService = require('../whatsapp/whatsapp.service');
+const db = require('../../config/db');
 
 /**
  * Despacha la acción correcta según la intención clasificada por Gemini.
@@ -43,6 +44,10 @@ async function dispatch(userId, phone, intentResult) {
       case 'CONSULTA':
         await handleQuery(userId, phone, data);
         return; // handleQuery envía su propio mensaje
+
+      case 'CANCELAR':
+        await handleCancel(userId, phone, data);
+        return; // handleCancel envía su propio mensaje
 
       case 'CONVERSACION':
         // Solo responder el texto generado por Gemini
@@ -171,6 +176,52 @@ async function handleQuery(userId, phone, data) {
       responseMsg = `🧠 Encontré esto en tu memoria:\n\n${items}`;
     } else {
       responseMsg = `🔍 No encontré información sobre "${data.title}" en tu memoria.`;
+    }
+  }
+
+  await whatsappService.sendTextMessage(phone, responseMsg);
+}
+
+async function handleCancel(userId, phone, data) {
+  let responseMsg = '';
+  const searchTerm = data.item_name || data.title || data.description;
+
+  if (data.query_type === 'inventory') {
+    const item = await inventoryService.findItem(userId, searchTerm);
+    if (item) {
+      const deleted = await inventoryService.deleteItem(item.id, userId);
+      responseMsg = deleted
+        ? `🗑️ Objeto *${item.item_name}* eliminado del inventario.`
+        : `⚠️ No se pudo eliminar *${item.item_name}*.`;
+    } else {
+      responseMsg = `🔍 No encontré ningún objeto en el inventario que coincida con "${searchTerm}".`;
+    }
+  } else if (data.query_type === 'tasks') {
+    // Cancelar tarea
+    const { rows } = await db.query(
+      `SELECT * FROM tasks WHERE user_id = $1 AND is_completed = FALSE AND (title ILIKE $2 OR description ILIKE $2) LIMIT 1`,
+      [userId, `%${searchTerm}%`]
+    );
+    if (rows.length > 0) {
+      const task = rows[0];
+      await db.query(`DELETE FROM tasks WHERE id = $1`, [task.id]);
+      responseMsg = `🗑️ Tarea *${task.title}* eliminada de tus pendientes.`;
+    } else {
+      responseMsg = `🔍 No encontré ninguna tarea pendiente que coincida con "${searchTerm}".`;
+    }
+  } else {
+    // Por defecto: recordatorios (reminders)
+    // Buscar un recordatorio activo
+    const { rows } = await db.query(
+      `SELECT * FROM reminders WHERE user_id = $1 AND is_sent = FALSE AND message ILIKE $2 ORDER BY scheduled_at ASC LIMIT 1`,
+      [userId, `%${searchTerm}%`]
+    );
+    if (rows.length > 0) {
+      const reminder = rows[0];
+      await reminderService.cancelReminder(reminder.id, userId);
+      responseMsg = `🗑️ Recordatorio de *${reminder.message}* cancelado con éxito.`;
+    } else {
+      responseMsg = `🔍 No encontré ningún recordatorio pendiente para "${searchTerm}".`;
     }
   }
 
