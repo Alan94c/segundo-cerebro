@@ -15,6 +15,22 @@ const headers = {
 };
 
 // ============================================================
+// Funciones de ayuda
+// ============================================================
+
+/**
+ * Formatea el número de destino para compatibilidad con el Sandbox de Meta.
+ * Para números de México, remueve el prefijo '1' que Meta inserta en los webhooks entrantes (521...)
+ * pero que rechaza al enviar de vuelta si el número está registrado como '52...' en la lista.
+ */
+function formatNumber(to) {
+  if (to && to.startsWith('521') && to.length === 13) {
+    return '52' + to.substring(3);
+  }
+  return to;
+}
+
+// ============================================================
 // Funciones de envío
 // ============================================================
 
@@ -24,13 +40,14 @@ const headers = {
  * @param {string} text - Texto del mensaje (soporta *negrita* y _cursiva_ de WA)
  */
 async function sendTextMessage(to, text) {
+  const formattedTo = formatNumber(to);
   try {
     const { data } = await axios.post(
       BASE_URL,
       {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to,
+        to: formattedTo,
         type: 'text',
         text: { preview_url: false, body: text },
       },
@@ -50,6 +67,7 @@ async function sendTextMessage(to, text) {
  * @param {Array}  buttons  - Array de {id, title} (máx 3 botones en WA)
  */
 async function sendButtonMessage(to, body, buttons) {
+  const formattedTo = formatNumber(to);
   const waButtons = buttons.slice(0, 3).map((btn) => ({
     type: 'reply',
     reply: { id: btn.id, title: btn.title.substring(0, 20) }, // WA limita a 20 chars
@@ -61,7 +79,7 @@ async function sendButtonMessage(to, body, buttons) {
       {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to,
+        to: formattedTo,
         type: 'interactive',
         interactive: {
           type: 'button',
@@ -75,7 +93,7 @@ async function sendButtonMessage(to, body, buttons) {
   } catch (err) {
     console.error('[WhatsApp] Error enviando mensaje con botones:', err.response?.data || err.message);
     // Fallback a texto si los botones fallan
-    return sendTextMessage(to, body);
+    return sendTextMessage(formattedTo, body);
   }
 }
 
@@ -87,13 +105,14 @@ async function sendButtonMessage(to, body, buttons) {
  * @param {Array}  sections - Array de {title, rows: [{id, title, description}]}
  */
 async function sendListMessage(to, body, btnText, sections) {
+  const formattedTo = formatNumber(to);
   try {
     const { data } = await axios.post(
       BASE_URL,
       {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to,
+        to: formattedTo,
         type: 'interactive',
         interactive: {
           type: 'list',
@@ -109,7 +128,7 @@ async function sendListMessage(to, body, btnText, sections) {
     return data;
   } catch (err) {
     console.error('[WhatsApp] Error enviando lista:', err.response?.data || err.message);
-    return sendTextMessage(to, body);
+    return sendTextMessage(formattedTo, body);
   }
 }
 
