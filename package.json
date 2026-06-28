@@ -1,0 +1,44 @@
+{
+  "name": "segundo-cerebro",
+  "version": "1.0.0",
+  "description": "WhatsApp-powered Second Brain — Backend with Gemini AI, PostgreSQL, and Google Workspace integrations",
+  "main": "src/firebase.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "deploy": "firebase deploy --only functions"
+  },
+  "keywords": [
+    "whatsapp",
+    "gemini",
+    "second-brain",
+    "ai",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1",
+    "googleapis": "^144.0.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.0-rc.4",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.1",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
