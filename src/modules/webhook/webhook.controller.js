@@ -138,10 +138,10 @@ async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
     const entityCount = Object.values(extracted.entities || {})
       .flat().filter(Boolean).length;
 
-    // Si hubo error, mostrarlo para debug
+    // Si hubo error, mostrar mensaje amigable
     if (extracted.error) {
       await whatsappService.sendTextMessage(phoneNumber,
-        `⚠️ *Error al analizar imagen:*\n\`${extracted.error}\``
+        '❌ Por el momento no pude analizar la imagen debido a una sincronización en el servicio de Google. Por favor, intenta de nuevo en unos minutos.'
       );
       return;
     }
