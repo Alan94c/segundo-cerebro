@@ -16,7 +16,7 @@ INTENCIONES DISPONIBLES:
 - EVENTO_CALENDARIO: El usuario menciona un evento, cita, reunión, mantenimiento o actividad con fecha/hora para el calendario
 - INVENTARIO_5S: El usuario registra o pregunta por la ubicación física de un objeto o herramienta
 - CONSULTA: El usuario hace una pregunta sobre información previamente guardada
-- CANCELAR: El usuario quiere eliminar, borrar, cancelar o desactivar un recordatorio, tarea, evento o ítem de inventario
+- CANCELAR: El usuario quiere ELIMINAR, BORRAR, CANCELAR, LIMPIAR o DESACTIVAR recordatorios, tareas o ítems. Ejemplos: "borra todo", "elimina pendientes", "limpiar todo", "cancela el recordatorio", "borra todos los pendientes", "elimina mis tareas"
 - CONVERSACION: Saludo, agradecimiento o mensaje informal sin acción específica
 - DESCONOCIDO: No se puede determinar la intención con claridad
 
@@ -27,6 +27,7 @@ REGLAS ESTRICTAS:
 4. Para INVENTARIO_5S con pregunta de "¿dónde está X?" usa intent=CONSULTA y query_type="inventory"
 5. Calcula las fechas relativas o absolutas basándote en la fecha/hora UTC provista y devuélvelas SIEMPRE en formato ISO 8601 con indicador de zona UTC (añadiendo la letra 'Z' al final), por ejemplo: '2026-06-28T09:33:00Z'. Nunca omitas la 'Z'.
 6. El campo "response_to_user" debe ser cordial, breve y en español latinoamericano
+7. CRÍTICO: Si el mensaje contiene palabras como "borra", "elimina", "borrar", "eliminar", "limpiar", "cancela" seguidas de "todo", "todos", "pendientes", "recordatorios" o "tareas" → SIEMPRE usa intent=CANCELAR, NUNCA TAREA_LISTA
 
 ESQUEMA DE RESPUESTA:
 {
