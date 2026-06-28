@@ -221,3 +221,17 @@ $$;
 -- DATOS INICIALES (opcional: usuario de prueba)
 -- ============================================================
 -- INSERT INTO users (phone_number, name) VALUES ('521234567890', 'Admin') ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- TABLA: messages (Historial de Conversación)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS messages (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
+    sender        VARCHAR(10) NOT NULL, -- 'user' o 'bot'
+    message_type  VARCHAR(20) DEFAULT 'text',
+    content       TEXT NOT NULL,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, created_at DESC);

@@ -31,28 +31,44 @@ async function saveFact(userId, content, tags = []) {
  * @returns {Promise<Object[]>} Memorias encontradas ordenadas por relevancia
  */
 async function searchFacts(userId, query, limit = 5) {
-  // Sanitizar query para evitar errores en to_tsquery
-  const sanitized = query
+  // Lista de stopwords comunes en español y palabras de relleno de preguntas
+  const stopwords = new Set([
+    'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al', 'y', 'o', 'en', 'para', 'por', 'con', 'sin', 'sobre',
+    'recuerdas', 'recuerda', 'busca', 'buscar', 'consulta', 'consultar', 'que', 'tiene', 'datos', 'informacion', 'ticket', 'recibo'
+  ]);
+
+  const words = query
     .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]/g, ' ')
+    .toLowerCase()
     .trim()
     .split(/\s+/)
-    .filter(Boolean)
-    .join(' & ');
+    .filter(w => w.length > 1 && !stopwords.has(w));
 
-  if (!sanitized) return [];
+  // Si no quedan palabras clave descriptivas, usamos todas las palabras sanitizadas por defecto
+  const searchWords = words.length > 0
+    ? words
+    : query.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+
+  if (searchWords.length === 0) return [];
+
+  // Unir palabras descriptivas con '|' (OR) para permitir coincidencias parciales rankeadas por relevancia
+  const sanitized = searchWords.join(' | ');
+
+  // Para el ILIKE de respaldo, usamos la palabra clave más larga (más descriptiva)
+  const mainKeyword = searchWords.sort((a, b) => b.length - a.length)[0];
 
   const { rows } = await db.query(
     `SELECT *,
-            ts_rank(search_vec, to_tsquery('spanish', $2)) AS rank
-     FROM memories
-     WHERE user_id = $1
-       AND (
-         search_vec @@ to_tsquery('spanish', $2)
-         OR content ILIKE $3
-       )
-     ORDER BY rank DESC, created_at DESC
-     LIMIT $4`,
-    [userId, sanitized, `%${query}%`, limit]
+             ts_rank(search_vec, to_tsquery('spanish', $2)) AS rank
+      FROM memories
+      WHERE user_id = $1
+        AND (
+          search_vec @@ to_tsquery('spanish', $2)
+          OR content ILIKE $3
+        )
+      ORDER BY rank DESC, created_at DESC
+      LIMIT $4`,
+    [userId, sanitized, `%${mainKeyword}%`, limit]
   );
 
   return rows;

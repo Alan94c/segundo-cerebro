@@ -7,6 +7,7 @@ const reminderService = require('../tasks/reminder.service');
 const calendarService = require('../calendar/calendar.service');
 const whatsappService = require('../whatsapp/whatsapp.service');
 const db = require('../../config/db');
+const historyService = require('../memory/history.service');
 
 /**
  * Despacha la acción correcta según la intención clasificada por Gemini.
@@ -62,12 +63,12 @@ async function dispatch(userId, phone, intentResult) {
 
     // Respuesta genérica de confirmación generada por Gemini
     await whatsappService.sendTextMessage(phone, responseText);
+    await historyService.logMessage(userId, 'bot', responseText);
   } catch (err) {
     console.error(`[Dispatcher] Error procesando intent "${intent}":`, err.message);
-    await whatsappService.sendTextMessage(
-      phone,
-      '⚠️ Ocurrió un error procesando tu mensaje. Por favor intenta de nuevo.'
-    );
+    const errText = '⚠️ Ocurrió un error procesando tu mensaje. Por favor intenta de nuevo.';
+    await whatsappService.sendTextMessage(phone, errText);
+    await historyService.logMessage(userId, 'bot', errText);
   }
 }
 
@@ -151,10 +152,9 @@ async function handleInventory(userId, phone, data) {
     data.location,
     data.description
   );
-  await whatsappService.sendTextMessage(
-    phone,
-    `📦 *${updated.item_name}* registrado en: _${updated.current_location}_\n✅ Ubicación actualizada.`
-  );
+  const responseMsg = `📦 *${updated.item_name}* registrado en: _${updated.current_location}_\n✅ Ubicación actualizada.`;
+  await whatsappService.sendTextMessage(phone, responseMsg);
+  await historyService.logMessage(userId, 'bot', responseMsg);
 }
 
 async function handleQuery(userId, phone, data) {
@@ -200,6 +200,7 @@ async function handleQuery(userId, phone, data) {
   }
 
   await whatsappService.sendTextMessage(phone, responseMsg);
+  await historyService.logMessage(userId, 'bot', responseMsg);
 }
 async function handleCancel(userId, phone, data) {
   let responseMsg = '';
@@ -232,6 +233,7 @@ async function handleCancel(userId, phone, data) {
                   `- Recordatorios cancelados: *${remindersDeleted}*\n` +
                   `- Tareas pendientes eliminadas: *${tasksDeleted}*`;
     await whatsappService.sendTextMessage(phone, responseMsg);
+    await historyService.logMessage(userId, 'bot', responseMsg);
     return;
   }
 
@@ -272,6 +274,7 @@ async function handleCancel(userId, phone, data) {
   }
 
   await whatsappService.sendTextMessage(phone, responseMsg);
+  await historyService.logMessage(userId, 'bot', responseMsg);
 }
 
 module.exports = { dispatch };

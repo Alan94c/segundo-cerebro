@@ -6,6 +6,7 @@ const { extractFromImage } = require('../nlp/vision.extractor');
 const { dispatch } = require('../nlp/action.dispatcher');
 const whatsappService = require('../whatsapp/whatsapp.service');
 const memoryService = require('../memory/memory.service');
+const historyService = require('../memory/history.service');
 
 // ============================================================
 // Controlador Principal del Webhook
@@ -95,13 +96,24 @@ async function processTextMessage(user, phoneNumber, text) {
   // Ignorar mensajes muy cortos o de estado
   if (!text || text.trim().length < 2) return;
 
-  // Clasificar intención con Gemini, inyectando la fecha y hora actual para cálculos relativos
+  // Obtener el historial reciente del usuario para contexto de la conversación
+  const recentMessages = await historyService.getRecentHistory(user.id, 6);
+  const historyContext = recentMessages.map(m => `${m.sender === 'user' ? 'Usuario' : 'Asistente'}: "${m.content}"`).join('\n');
+
+  // Guardar mensaje entrante del usuario en el historial
+  await historyService.logMessage(user.id, 'user', text);
+
+  // Clasificar intención con Gemini, inyectando historial y fecha actual para cálculos relativos
   const now = new Date();
   const localTimeStr = now.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
-  const intentResult = await classifyIntent(
-    text,
-    `Nombre del usuario: ${user.name || phoneNumber}\nFecha y hora actual (local): ${localTimeStr}\nFecha y hora actual (UTC): ${now.toISOString()}`
-  );
+  const fullContext = `Nombre del usuario: ${user.name || phoneNumber}
+Fecha y hora actual (local): ${localTimeStr}
+Fecha y hora actual (UTC): ${now.toISOString()}
+
+HISTORIAL RECIENTE DE LA CONVERSACIÓN:
+${historyContext || 'No hay mensajes previos.'}`;
+
+  const intentResult = await classifyIntent(text, fullContext);
 
   // Despachar la acción correspondiente
   await dispatch(user.id, phoneNumber, intentResult);
@@ -112,6 +124,9 @@ async function processTextMessage(user, phoneNumber, text) {
  */
 async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
   const mediaId = mediaPayload.id;
+
+  // Log incoming image virtual message
+  await historyService.logMessage(user.id, 'user', `[Envió una imagen/documento]`);
 
   await whatsappService.sendTextMessage(
     phoneNumber,
@@ -140,9 +155,9 @@ async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
 
     // Si hubo error, mostrar mensaje amigable
     if (extracted.error) {
-      await whatsappService.sendTextMessage(phoneNumber,
-        '❌ Por el momento no pude analizar la imagen debido a una sincronización en el servicio de Google. Por favor, intenta de nuevo en unos minutos.'
-      );
+      const errResponse = '❌ Por el momento no pude analizar la imagen debido a una sincronización en el servicio de Google. Por favor, intenta de nuevo en unos minutos.';
+      await whatsappService.sendTextMessage(phoneNumber, errResponse);
+      await historyService.logMessage(user.id, 'bot', errResponse);
       return;
     }
 
@@ -156,12 +171,12 @@ Todo ha sido guardado en tu memoria. Puedes preguntarme sobre este documento cua
     `.trim();
 
     await whatsappService.sendTextMessage(phoneNumber, response);
+    await historyService.logMessage(user.id, 'bot', response);
   } catch (err) {
     console.error('[Webhook] Error procesando imagen:', err.message);
-    await whatsappService.sendTextMessage(
-      phoneNumber,
-      '❌ No pude analizar la imagen. ¿Puedes describirla en texto?'
-    );
+    const failResponse = '❌ No pude analizar la imagen. ¿Puedes describirla en texto?';
+    await whatsappService.sendTextMessage(phoneNumber, failResponse);
+    await historyService.logMessage(user.id, 'bot', failResponse);
   }
 }
 
