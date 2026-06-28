@@ -10,23 +10,22 @@ const { withFallback } = require('./gemini.client');
 // Prompt del sistema para extracción de entidades desde imágenes
 const VISION_SYSTEM_PROMPT = `
 Eres un experto en extracción de información de documentos e imágenes.
-Analiza la imagen proporcionada y extrae TODAS las entidades relevantes.
+Analiza la imagen y extrae la información más relevante.
 
-Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura:
+Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
 {
-  "document_type": "factura | recibo | diagrama | evento | producto | otro",
-  "summary": "Descripción breve de lo que muestra la imagen",
+  "document_type": "recibo",
+  "summary": "Resumen breve en una sola oración sin comillas especiales",
   "entities": {
-    "dates": ["2024-01-15"],
-    "amounts": ["$182.80 MXN total", "$21.08 IVA"],
-    "contacts": ["Margarita Garcia - cajera"],
-    "locations": ["OfficeMax Operadora MX, Ciudad de Mexico"],
-    "products": ["Marcador EXPO EXT FINO NEGRO x1"],
+    "dates": ["28 junio 2024"],
+    "amounts": ["Total 182.80 MXN", "IVA 21.08 MXN"],
+    "products": ["Marcador EXPO negro"],
     "companies": ["OfficeMax"],
+    "locations": ["Ciudad de Mexico"],
+    "contacts": [],
     "other": []
   },
-  "suggested_action": "MEMORIA_LARGO_PLAZO",
-  "raw_text": "Todo el texto visible en la imagen en una sola línea"
+  "suggested_action": "MEMORIA_LARGO_PLAZO"
 }
 `.trim();
 
