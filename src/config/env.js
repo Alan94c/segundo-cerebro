@@ -48,6 +48,7 @@ module.exports = {
 
   // Gemini
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_API_KEY_BACKUP: process.env.GEMINI_API_KEY_BACKUP || null,
   GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
 
   // Google OAuth2

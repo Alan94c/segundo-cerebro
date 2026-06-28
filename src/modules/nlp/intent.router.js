@@ -1,6 +1,6 @@
 'use strict';
 
-const { textModel } = require('./gemini.client');
+const { withFallback } = require('./gemini.client');
 
 // ============================================================
 // Prompt del Sistema — El "Cerebro" del enrutador NLP
@@ -62,7 +62,7 @@ async function classifyIntent(message, context = '') {
   const prompt = `${ROUTER_SYSTEM_PROMPT}${contextBlock}\n\nMENSAJE DEL USUARIO:\n"${message}"`;
 
   try {
-    const result = await textModel.generateContent(prompt);
+    const result = await withFallback((textModel) => textModel.generateContent(prompt));
     const rawText = result.response.text();
     const parsed = JSON.parse(rawText);
 
