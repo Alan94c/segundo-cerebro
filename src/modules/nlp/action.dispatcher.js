@@ -156,11 +156,12 @@ async function handleQuery(userId, phone, data) {
   let responseMsg = '';
 
   if (data.query_type === 'inventory') {
-    const item = await inventoryService.findItem(userId, data.title || data.description);
+    const searchTerm = data.item_name || data.title || data.description;
+    const item = await inventoryService.findItem(userId, searchTerm);
     if (item) {
       responseMsg = `📦 *${item.item_name}*\n📍 Ubicación: _${item.current_location}_\n🕐 Visto por última vez: ${new Date(item.last_seen_at).toLocaleString('es-MX')}`;
     } else {
-      responseMsg = `🔍 No encontré ningún objeto que coincida con "${data.title}". ¿Puedes ser más específico?`;
+      responseMsg = `🔍 No encontré ningún objeto que coincida con "${searchTerm}". ¿Puedes ser más específico?`;
     }
   } else {
     // Búsqueda en memorias
