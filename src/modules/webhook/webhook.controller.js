@@ -197,11 +197,25 @@ async function findOrCreateUser(phoneNumber) {
 
   if (rows.length > 0) return rows[0];
 
-  // Auto-registro del nuevo usuario
+  // Auto-registro del nuevo usuario con control de concurrencia
   const { rows: newUser } = await db.query(
-    `INSERT INTO users (phone_number) VALUES ($1) RETURNING *`,
+    `INSERT INTO users (phone_number) 
+     VALUES ($1) 
+     ON CONFLICT (phone_number) 
+     DO NOTHING 
+     RETURNING *`,
     [phoneNumber]
   );
+
+  if (newUser.length === 0) {
+    // Si no se insertó nada, significa que otro hilo lo insertó primero.
+    // Buscamos y retornamos el usuario existente sin enviar duplicado el mensaje de bienvenida.
+    const { rows: existingUser } = await db.query(
+      `SELECT * FROM users WHERE phone_number = $1`,
+      [phoneNumber]
+    );
+    return existingUser[0];
+  }
 
   const user = newUser[0];
   console.log(`[Webhook] 🆕 Nuevo usuario registrado: ${phoneNumber}`);

@@ -205,16 +205,20 @@ async function handleCancel(userId, phone, data) {
   let responseMsg = '';
   const searchTerm = data.item_name || data.title || data.description || '';
 
-  const termLower = searchTerm.toLowerCase();
-  const isAll = termLower.includes('todo') ||
-                termLower.includes('todos') ||
-                termLower.includes('limpiar') ||
-                termLower.includes('pendiente') ||
-                termLower.includes('pendientes') ||
-                termLower.includes('elimina') ||
-                termLower.includes('borrar') ||
-                termLower.includes('borra') ||
-                termLower === '';
+  const cleanTerm = searchTerm.toLowerCase().trim();
+  
+  // Para evitar que "borra el pendiente de X" limpie toda la base de datos,
+  // restringimos la limpieza masiva a palabras clave explícitamente globales.
+  const isAll = cleanTerm === '' ||
+                cleanTerm === 'todo' ||
+                cleanTerm === 'todos' ||
+                cleanTerm === 'limpiar' ||
+                cleanTerm === 'limpiar todo' ||
+                cleanTerm === 'borrar todo' ||
+                cleanTerm === 'eliminar todo' ||
+                cleanTerm === 'todos los pendientes' ||
+                cleanTerm === 'todas las tareas' ||
+                cleanTerm === 'todos los recordatorios';
   if (isAll) {
     const { rowCount: remindersDeleted } = await db.query(
       `DELETE FROM reminders WHERE user_id = $1 AND is_sent = FALSE`,

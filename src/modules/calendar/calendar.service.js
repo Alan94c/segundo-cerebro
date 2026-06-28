@@ -2,6 +2,7 @@
 
 const { google } = require('googleapis');
 const { getAuthenticatedClient } = require('./google.auth');
+const db = require('../../config/db');
 
 /**
  * Crea un evento en Google Calendar del usuario.
@@ -17,6 +18,10 @@ async function createEvent(userId, title, startDateTime, endDateTime = null, des
   const authClient = await getAuthenticatedClient(userId);
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
+  // Obtener la zona horaria del usuario de la base de datos
+  const { rows } = await db.query('SELECT timezone FROM users WHERE id = $1', [userId]);
+  const tz = rows[0]?.timezone || 'America/Mexico_City';
+
   // Si no hay end time, el evento dura 1 hora por defecto
   const start = new Date(startDateTime);
   const end = endDateTime
@@ -30,11 +35,11 @@ async function createEvent(userId, title, startDateTime, endDateTime = null, des
       description: description || '',
       start: {
         dateTime: start.toISOString(),
-        timeZone: 'America/Mexico_City',
+        timeZone: tz,
       },
       end: {
         dateTime: end.toISOString(),
-        timeZone: 'America/Mexico_City',
+        timeZone: tz,
       },
       reminders: {
         useDefault: false,
