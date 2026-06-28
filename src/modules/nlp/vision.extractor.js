@@ -6,28 +6,36 @@ const path = require('path');
 const os = require('os');
 const { WHATSAPP_TOKEN, WHATSAPP_API_VERSION } = require('../../config/env');
 const { withFallback } = require('./gemini.client');
+const { SchemaType } = require('@google/generative-ai');
 
 // Prompt del sistema para extracción de entidades desde imágenes
 const VISION_SYSTEM_PROMPT = `
 Eres un experto en extracción de información de documentos e imágenes.
-Analiza la imagen y extrae la información más relevante.
+Analiza la imagen y extrae la información más relevante de manera estructurada.
+`;
 
-Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
-{
-  "document_type": "recibo",
-  "summary": "Resumen breve en una sola oración sin comillas especiales",
-  "entities": {
-    "dates": ["28 junio 2024"],
-    "amounts": ["Total 182.80 MXN", "IVA 21.08 MXN"],
-    "products": ["Marcador EXPO negro"],
-    "companies": ["OfficeMax"],
-    "locations": ["Ciudad de Mexico"],
-    "contacts": [],
-    "other": []
+const VISION_RESPONSE_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    document_type: { type: SchemaType.STRING },
+    summary: { type: SchemaType.STRING },
+    entities: {
+      type: SchemaType.OBJECT,
+      properties: {
+        dates: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        amounts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        products: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        companies: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        locations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        contacts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        other: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+      },
+      required: ["dates", "amounts", "products", "companies", "locations", "contacts", "other"]
+    },
+    suggested_action: { type: SchemaType.STRING }
   },
-  "suggested_action": "MEMORIA_LARGO_PLAZO"
-}
-`.trim();
+  required: ["document_type", "summary", "entities", "suggested_action"]
+};
 
 /**
  * Descarga un archivo multimedia de WhatsApp Cloud API.
@@ -73,10 +81,19 @@ async function extractFromImage(mediaId) {
     const imageData = fs.readFileSync(fp).toString('base64');
 
     const result = await withFallback((_, visionModel) =>
-      visionModel.generateContent([
-        { text: VISION_SYSTEM_PROMPT },
-        { inlineData: { mimeType, data: imageData } },
-      ])
+      visionModel.generateContent({
+        contents: [
+          { role: 'user', parts: [
+            { text: VISION_SYSTEM_PROMPT },
+            { inlineData: { mimeType, data: imageData } }
+          ]}
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: VISION_RESPONSE_SCHEMA,
+          temperature: 0.1
+        }
+      })
     );
 
     let responseText = result.response.text().trim();
