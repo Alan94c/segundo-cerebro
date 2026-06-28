@@ -1,6 +1,6 @@
 # 🧠 Segundo Cerebro — WhatsApp Backend
 
-Backend completo de un asistente personal inteligente operado vía WhatsApp. Usa Gemini AI para clasificar mensajes en lenguaje natural y ejecutar acciones en PostgreSQL y Google Calendar.
+Backend completo de un asistente personal inteligente operado vía WhatsApp. Usa Gemini AI para clasificar mensajes en lenguaje natural y ejecutar acciones en PostgreSQL y Google Calendar. 
 
 ---
 
