@@ -9,16 +9,32 @@ const db = require('../../config/db');
  * @param {string} message      - Mensaje a enviar en el recordatorio
  * @param {Date}   scheduledAt  - Fecha y hora exacta del recordatorio
  * @param {string|null} taskId  - UUID de tarea vinculada (opcional)
+ * @param {boolean} isRecurring - Si es recurrente
+ * @param {string|null} recurrenceRule - Regla de recurrencia ('daily', 'weekly', 'monthly')
  * @returns {Promise<Object>}   El recordatorio creado
  */
-async function createReminder(userId, message, scheduledAt, taskId = null) {
+async function createReminder(userId, message, scheduledAt, taskId = null, isRecurring = false, recurrenceRule = null) {
   const { rows } = await db.query(
-    `INSERT INTO reminders (user_id, task_id, message, scheduled_at)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO reminders (user_id, task_id, message, scheduled_at, is_recurring, recurrence_rule)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [userId, taskId, message, scheduledAt]
+    [userId, taskId, message, scheduledAt, isRecurring, recurrenceRule]
   );
   return rows[0];
+}
+
+/**
+ * Reprograma un recordatorio recurrente para su próxima fecha.
+ * @param {string} reminderId
+ * @param {Date}   nextDate
+ */
+async function rescheduleReminder(reminderId, nextDate) {
+  await db.query(
+    `UPDATE reminders
+     SET scheduled_at = $2, sent_at = NOW()
+     WHERE id = $1`,
+    [reminderId, nextDate]
+  );
 }
 
 /**
@@ -89,4 +105,5 @@ module.exports = {
   markAsSent,
   getUpcomingReminders,
   cancelReminder,
+  rescheduleReminder,
 };

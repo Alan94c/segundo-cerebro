@@ -86,20 +86,29 @@ async function handleMemory(userId, data) {
 }
 
 async function handleReminder(userId, data) {
-  // Crear tarea si hay descripción de tarea
-  let taskId = null;
-  if (data.title) {
-    const task = await taskService.addTask(null, userId, userId, data.title, data.description, data.datetime);
-    taskId = task.id;
-  }
+  const datetimes = data.datetimes && data.datetimes.length > 0
+    ? data.datetimes
+    : (data.datetime ? [data.datetime] : []);
+  
+  const isRecurring = !!data.recurrence_rule;
+  const recurrenceRule = data.recurrence_rule || null;
 
-  // Crear el recordatorio con fecha
-  if (data.datetime) {
+  for (const dt of datetimes) {
+    // Crear tarea si hay descripción de tarea
+    let taskId = null;
+    if (data.title) {
+      const task = await taskService.addTask(null, userId, userId, data.title, data.description, dt);
+      taskId = task.id;
+    }
+
+    // Crear el recordatorio con parámetros de recurrencia
     await reminderService.createReminder(
       userId,
       data.description || data.title,
-      new Date(data.datetime),
-      taskId
+      new Date(dt),
+      taskId,
+      isRecurring,
+      recurrenceRule
     );
   }
 }

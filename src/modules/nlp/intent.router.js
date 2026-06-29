@@ -1,6 +1,7 @@
 'use strict';
 
 const { withFallback } = require('./gemini.client');
+const { SchemaType } = require('@google/generative-ai');
 
 // ============================================================
 // Prompt del Sistema — El "Cerebro" del enrutador NLP
@@ -29,6 +30,7 @@ REGLAS ESTRICTAS:
 6. El campo "response_to_user" debe ser cordial, breve y en español latinoamericano
 7. CRÍTICO: Si el mensaje contiene palabras como "borra", "elimina", "borrar", "eliminar", "limpiar", "cancela" seguidas de "todo", "todos", "pendientes", "recordatorios" o "tareas" → SIEMPRE usa intent=CANCELAR, NUNCA TAREA_LISTA
 8. Para la intención CONSULTA, extrae en el campo 'title' únicamente los términos o palabras clave específicos de búsqueda (ej: 'OfficeMax', 'llaves', 'Home Depot') resolviendo pronombres y basándote en la pregunta y el historial conversacional. Nunca devuelvas descripciones genéricas como 'Consulta sobre...' o 'Pregunta de...'.
+9. Si el usuario pide un recordatorio múltiple o recurrente, calcula la fecha/hora del próximo envío para cada horario solicitado y colócalos en la lista 'datetimes'. Identifica la regla de recurrencia ('daily', 'weekly', 'monthly') en 'recurrence_rule'.
 
 ESQUEMA DE RESPUESTA:
 {
@@ -38,6 +40,8 @@ ESQUEMA DE RESPUESTA:
     "title": "Título o resumen corto de la acción",
     "description": "Descripción completa extraída del mensaje",
     "datetime": "2024-01-15T14:00:00Z" | null,
+    "datetimes": ["2024-01-15T14:00:00Z"] | [],
+    "recurrence_rule": "daily | weekly | monthly" | null,
     "list_name": "Nombre de la lista si aplica" | null,
     "item_name": "Nombre del objeto (para inventario)" | null,
     "location": "Ubicación del objeto (para inventario)" | null,
@@ -49,6 +53,34 @@ ESQUEMA DE RESPUESTA:
   "response_to_user": "Mensaje amigable confirmando la acción o respondiendo la consulta"
 }
 `.trim();
+
+const intentSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    intent: { type: SchemaType.STRING },
+    confidence: { type: SchemaType.NUMBER },
+    extracted_data: {
+      type: SchemaType.OBJECT,
+      properties: {
+        title: { type: SchemaType.STRING },
+        description: { type: SchemaType.STRING },
+        datetime: { type: SchemaType.STRING },
+        datetimes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        recurrence_rule: { type: SchemaType.STRING },
+        list_name: { type: SchemaType.STRING },
+        item_name: { type: SchemaType.STRING },
+        location: { type: SchemaType.STRING },
+        tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        priority: { type: SchemaType.STRING },
+        related_contact: { type: SchemaType.STRING },
+        query_type: { type: SchemaType.STRING }
+      },
+      required: ["title", "description", "tags", "priority"]
+    },
+    response_to_user: { type: SchemaType.STRING }
+  },
+  required: ["intent", "confidence", "extracted_data", "response_to_user"]
+};
 
 /**
  * Clasifica la intención del usuario a partir de un mensaje de texto.
@@ -64,7 +96,16 @@ async function classifyIntent(message, context = '') {
   const prompt = `${ROUTER_SYSTEM_PROMPT}${contextBlock}\n\nMENSAJE DEL USUARIO:\n"${message}"`;
 
   try {
-    const result = await withFallback((textModel) => textModel.generateContent(prompt));
+    const result = await withFallback((textModel) => 
+      textModel.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: intentSchema,
+          temperature: 0.1
+        }
+      })
+    );
     const rawText = result.response.text();
     const parsed = JSON.parse(rawText);
 
@@ -85,6 +126,8 @@ async function classifyIntent(message, context = '') {
         title: message.substring(0, 100),
         description: message,
         datetime: null,
+        datetimes: [],
+        recurrence_rule: null,
         list_name: null,
         item_name: null,
         location: null,

@@ -13,6 +13,21 @@ const { DAILY_DIGEST_CRON } = require('../../config/env');
 // Job 1: Verificación de Recordatorios (cada minuto)
 // ============================================================
 
+function calculateNextOccurrence(currentDate, rule) {
+  const next = new Date(currentDate);
+  const cleanRule = String(rule).toLowerCase().trim();
+  if (cleanRule === 'daily') {
+    next.setDate(next.getDate() + 1);
+  } else if (cleanRule === 'weekly') {
+    next.setDate(next.getDate() + 7);
+  } else if (cleanRule === 'monthly') {
+    next.setMonth(next.getMonth() + 1);
+  } else {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+}
+
 async function checkReminders() {
   try {
     const pending = await reminderService.getPendingReminders();
@@ -25,8 +40,15 @@ async function checkReminders() {
       try {
         const msg = `🔔 *Recordatorio*\n\n${reminder.message}`;
         await whatsappService.sendTextMessage(reminder.phone_number, msg);
-        await reminderService.markAsSent(reminder.id);
-        console.log(`[Scheduler] ✅ Recordatorio enviado a ${reminder.phone_number}`);
+
+        if (reminder.is_recurring && reminder.recurrence_rule) {
+          const nextDate = calculateNextOccurrence(reminder.scheduled_at, reminder.recurrence_rule);
+          await reminderService.rescheduleReminder(reminder.id, nextDate);
+          console.log(`[Scheduler] 🔁 Recordatorio recurrente enviado y reprogramado para ${nextDate.toLocaleString('es-MX')}`);
+        } else {
+          await reminderService.markAsSent(reminder.id);
+          console.log(`[Scheduler] ✅ Recordatorio único enviado a ${reminder.phone_number}`);
+        }
       } catch (err) {
         console.error(`[Scheduler] ❌ Error enviando recordatorio ${reminder.id}:`, err.message);
       }
