@@ -78,8 +78,25 @@ He completado una segunda revisión exhaustiva y he corregido tres errores crít
 
 ---
 
+### 5. Recordatorios Múltiples y Recurrentes
+
+*   **Archivos Modificados:**
+    *   [intent.router.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/nlp/intent.router.js)
+    *   [reminder.service.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/tasks/reminder.service.js)
+    *   [action.dispatcher.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/nlp/action.dispatcher.js)
+    *   [scheduler.js](file:///C:/Users/MSI/.gemini/antigravity/scratch/segundo-cerebro/src/modules/scheduler/scheduler.js)
+*   **Detalle:** El bot solo podía crear un recordatorio a la vez y no tenía soporte para repetición/recurrencia (diario, semanal, etc.).
+*   **Corrección:**
+    1.  **NLP Expandido:** Añadida la regla 9 al prompt de intenciones y configurados los campos `datetimes` (array) y `recurrence_rule` (string) usando Structured Outputs (`responseSchema`).
+    2.  **Múltiples Recordatorios en un mensaje:** El dispatcher ahora itera sobre todos los horarios detectados (`datetimes`) y crea un registro individual para cada uno en la base de datos.
+    3.  **Lógica de Recurrencia en Base de Datos:** `createReminder` ahora guarda los flags de recurrencia (`is_recurring`, `recurrence_rule`).
+    4.  **Auto-Reprogramación en el Scheduler:** Modificado el cron de verificación para que, si un recordatorio es recurrente, calcule la fecha siguiente (ej. +24 horas para `daily`) y reprograma el registro (`scheduled_at = nextDate`) en lugar de marcarlo como enviado, manteniéndolo activo de por vida.
+
+---
+
 ## Plan de Verificación y Resultados
 
 *   **Análisis Sintáctico:** Se ejecutó `node --check` en cada archivo modificado para corroborar la validez de la sintaxis. Todos pasaron sin errores.
 *   **Prueba de Despliegue:** Se subieron los cambios a GitHub, lo cual activó una reconstrucción y actualización exitosa en Render.
+
 
