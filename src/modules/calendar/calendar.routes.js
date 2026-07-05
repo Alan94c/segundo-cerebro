@@ -56,10 +56,14 @@ router.get('/google/callback', async (req, res) => {
 
     if (rows.length > 0) {
       const user = rows[0];
-      await whatsappService.sendTextMessage(
-        user.phone_number,
-        `✅ *¡Google Calendar vinculado correctamente!*\n\nAhora cuando me digas sobre un evento o cita, lo agregaré automáticamente a tu calendario. 📅`
-      );
+      try {
+        await whatsappService.sendTextMessage(
+          user.phone_number,
+          `✅ *¡Google Calendar vinculado correctamente!*\n\nAhora cuando me digas sobre un evento o cita, lo agregaré automáticamente a tu calendario. 📅`
+        );
+      } catch (waErr) {
+        console.warn('[Google Auth] No se pudo enviar notificación de WhatsApp:', waErr.message);
+      }
     }
 
     res.send(`
