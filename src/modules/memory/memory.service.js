@@ -1,6 +1,7 @@
 'use strict';
 
 const db = require('../../config/db');
+const { getEmbedding } = require('../nlp/gemini.client');
 
 /**
  * Guarda un hecho o dato en la memoria a largo plazo del usuario.
@@ -12,18 +13,25 @@ const db = require('../../config/db');
  * @returns {Promise<Object>} El registro creado
  */
 async function saveFact(userId, content, tags = []) {
+  let embedding = null;
+  try {
+    embedding = await getEmbedding(content);
+  } catch (err) {
+    console.error('[MemoryService] Error al generar embedding para guardar memoria:', err.message);
+  }
+
   const { rows } = await db.query(
-    `INSERT INTO memories (user_id, content, tags)
-     VALUES ($1, $2, $3)
+    `INSERT INTO memories (user_id, content, tags, embedding)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [userId, content, tags]
+    [userId, content, tags, embedding ? `[${embedding.join(',')}]` : null]
   );
   return rows[0];
 }
 
 /**
- * Busca hechos por similitud de texto usando full-text search en español.
- * Combina búsqueda exacta con similitud de trigramas (pg_trgm).
+ * Busca hechos por similitud semántica (pgvector) y similitud de texto (full-text search).
+ * Combina ambos métodos para una búsqueda híbrida robusta.
  *
  * @param {string} userId - UUID del usuario
  * @param {string} query  - Texto a buscar
@@ -31,6 +39,14 @@ async function saveFact(userId, content, tags = []) {
  * @returns {Promise<Object[]>} Memorias encontradas ordenadas por relevancia
  */
 async function searchFacts(userId, query, limit = 5) {
+  // Generar embedding para la consulta
+  let embedding = null;
+  try {
+    embedding = await getEmbedding(query);
+  } catch (err) {
+    console.error('[MemoryService] Error al generar embedding para búsqueda:', err.message);
+  }
+
   // Lista de stopwords comunes en español y palabras de relleno de preguntas
   const stopwords = new Set([
     'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al', 'y', 'o', 'en', 'para', 'por', 'con', 'sin', 'sobre',
@@ -49,29 +65,49 @@ async function searchFacts(userId, query, limit = 5) {
     ? words
     : query.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean);
 
-  if (searchWords.length === 0) return [];
+  if (searchWords.length === 0 && !embedding) return [];
 
-  // Unir palabras descriptivas con '|' (OR) para permitir coincidencias parciales rankeadas por relevancia
-  const sanitized = searchWords.join(' | ');
+  const sanitized = searchWords.join(' | ') || 'a';
+  const mainKeyword = searchWords.sort((a, b) => b.length - a.length)[0] || '';
 
-  // Para el ILIKE de respaldo, usamos la palabra clave más larga (más descriptiva)
-  const mainKeyword = searchWords.sort((a, b) => b.length - a.length)[0];
-
-  const { rows } = await db.query(
-    `SELECT *,
-             ts_rank(search_vec, to_tsquery('spanish', $2)) AS rank
-      FROM memories
-      WHERE user_id = $1
-        AND (
-          search_vec @@ to_tsquery('spanish', $2)
-          OR content ILIKE $3
-        )
-      ORDER BY rank DESC, created_at DESC
-      LIMIT $4`,
-    [userId, sanitized, `%${mainKeyword}%`, limit]
-  );
-
-  return rows;
+  // Búsqueda híbrida usando pgvector y FTS si el embedding está disponible
+  if (embedding && embedding.length > 0) {
+    const { rows } = await db.query(
+      `SELECT *,
+              (embedding <=> $2) AS distance,
+              ts_rank(search_vec, to_tsquery('spanish', $3)) AS rank
+       FROM memories
+       WHERE user_id = $1
+         AND (
+           (embedding IS NOT NULL AND (embedding <=> $2) < 0.6)
+           OR search_vec @@ to_tsquery('spanish', $3)
+           OR content ILIKE $4
+         )
+       ORDER BY 
+         CASE WHEN embedding IS NOT NULL THEN (embedding <=> $2) ELSE 1.0 END ASC,
+         rank DESC,
+         created_at DESC
+       LIMIT $5`,
+      [userId, embedding ? `[${embedding.join(',')}]` : null, sanitized, `%${mainKeyword}%`, limit]
+    );
+    return rows;
+  } else {
+    // Fallback FTS clásico si falla el servicio de embeddings
+    const { rows } = await db.query(
+      `SELECT *,
+               ts_rank(search_vec, to_tsquery('spanish', $2)) AS rank
+        FROM memories
+        WHERE user_id = $1
+          AND (
+            search_vec @@ to_tsquery('spanish', $2)
+            OR content ILIKE $3
+          )
+        ORDER BY rank DESC, created_at DESC
+        LIMIT $4`,
+      [userId, sanitized, `%${mainKeyword}%`, limit]
+    );
+    return rows;
+  }
 }
 
 /**

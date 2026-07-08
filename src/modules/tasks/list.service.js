@@ -176,7 +176,7 @@ async function getTodayTasks(userId) {
      LEFT JOIN lists l ON t.list_id = l.id
      WHERE t.assigned_to = $1
        AND t.status NOT IN ('completed', 'cancelled')
-       AND t.due_date::date = CURRENT_DATE
+       AND (t.due_date AT TIME ZONE COALESCE((SELECT timezone FROM users WHERE id = $1), 'America/Mexico_City'))::date = (NOW() AT TIME ZONE COALESCE((SELECT timezone FROM users WHERE id = $1), 'America/Mexico_City'))::date
      ORDER BY t.priority DESC, t.due_date ASC`,
     [userId]
   );

@@ -16,6 +16,35 @@ const { DAILY_DIGEST_CRON } = require('../../config/env');
 function calculateNextOccurrence(currentDate, rule) {
   const next = new Date(currentDate);
   const cleanRule = String(rule).toLowerCase().trim();
+  
+  if (cleanRule === 'hourly') {
+    next.setHours(next.getHours() + 1);
+    return next;
+  }
+  
+  // Custom intervals: every_X_minutes, every_X_hours, every_X_days, every_X_weeks, every_X_months
+  if (cleanRule.startsWith('every_')) {
+    const match = cleanRule.match(/every_(\d+)_(minute|hour|day|week|month)s?/);
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+      
+      if (unit === 'minute') {
+        next.setMinutes(next.getMinutes() + value);
+      } else if (unit === 'hour') {
+        next.setHours(next.getHours() + value);
+      } else if (unit === 'day') {
+        next.setDate(next.getDate() + value);
+      } else if (unit === 'week') {
+        next.setDate(next.getDate() + (value * 7));
+      } else if (unit === 'month') {
+        next.setMonth(next.getMonth() + value);
+      }
+      return next;
+    }
+  }
+  
+  // Backward compatibility
   if (cleanRule === 'daily') {
     next.setDate(next.getDate() + 1);
   } else if (cleanRule === 'weekly') {
@@ -110,13 +139,14 @@ async function buildAndSendDigest(user) {
   const events = await calendarService.listTodayEvents(user.id);
 
   // 3. Obtener recordatorios de hoy
+  const tz = user.timezone || 'America/Mexico_City';
   const { rows: reminders } = await db.query(
     `SELECT * FROM reminders
-     WHERE user_id = $1
+      WHERE user_id = $1
        AND is_sent = FALSE
-       AND scheduled_at::date = CURRENT_DATE
+       AND (scheduled_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date
      ORDER BY scheduled_at ASC`,
-    [user.id]
+    [user.id, tz]
   );
 
   // Si no hay nada para hoy, no enviar digest

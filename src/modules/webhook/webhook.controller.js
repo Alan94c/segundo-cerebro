@@ -7,6 +7,7 @@ const { dispatch } = require('../nlp/action.dispatcher');
 const whatsappService = require('../whatsapp/whatsapp.service');
 const memoryService = require('../memory/memory.service');
 const historyService = require('../memory/history.service');
+const audioService = require('../nlp/audio.service');
 
 // ============================================================
 // Controlador Principal del Webhook
@@ -61,12 +62,32 @@ async function handleIncoming(req, res) {
         break;
 
       case 'audio':
-        // Gemini no transcribe audio directamente desde WA
-        // Informar al usuario y guardar el hecho
-        await whatsappService.sendTextMessage(
-          phoneNumber,
-          '🎙️ Recibí tu nota de voz. Por ahora, por favor envía tu mensaje en texto. La transcripción automática estará disponible pronto.'
-        );
+        try {
+          // Informar al usuario que se está procesando
+          await whatsappService.sendTextMessage(
+            phoneNumber,
+            '🎙️ Procesando nota de voz... Un momento.'
+          );
+
+          const transcription = await audioService.transcribeAudio(message.audio.id);
+
+          if (!transcription || transcription.trim() === '') {
+            await whatsappService.sendTextMessage(
+              phoneNumber,
+              '🤷 No logré entender el audio. ¿Podrías intentar grabarlo de nuevo o escribir tu mensaje?'
+            );
+            break;
+          }
+
+          // Re-inyectar al pipeline de texto
+          await processTextMessage(user, phoneNumber, transcription, `[Nota de voz] ${transcription}`);
+        } catch (audioErr) {
+          console.error('[Webhook] Error transcribiendo audio:', audioErr.message);
+          await whatsappService.sendTextMessage(
+            phoneNumber,
+            '❌ Ocurrió un error al procesar tu nota de voz. Por favor, intenta de nuevo o escribe tu mensaje en texto.'
+          );
+        }
         break;
 
       case 'interactive':
@@ -92,7 +113,7 @@ async function handleIncoming(req, res) {
 /**
  * Procesa un mensaje de texto a través del pipeline NLP.
  */
-async function processTextMessage(user, phoneNumber, text) {
+async function processTextMessage(user, phoneNumber, text, logText = null) {
   // Ignorar mensajes muy cortos o de estado
   if (!text || text.trim().length < 2) return;
 
@@ -100,13 +121,15 @@ async function processTextMessage(user, phoneNumber, text) {
   const recentMessages = await historyService.getRecentHistory(user.id, 6);
   const historyContext = recentMessages.map(m => `${m.sender === 'user' ? 'Usuario' : 'Asistente'}: "${m.content}"`).join('\n');
 
-  // Guardar mensaje entrante del usuario en el historial
-  await historyService.logMessage(user.id, 'user', text);
+  // Guardar mensaje entrante del usuario en el historial (usando logText si se provee, p. ej. para notas de voz)
+  await historyService.logMessage(user.id, 'user', logText || text);
 
   // Clasificar intención con Gemini, inyectando historial y fecha actual para cálculos relativos
   const now = new Date();
-  const localTimeStr = now.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+  const tz = user.timezone || 'America/Mexico_City';
+  const localTimeStr = now.toLocaleString('es-MX', { timeZone: tz });
   const fullContext = `Nombre del usuario: ${user.name || phoneNumber}
+Zona horaria del usuario: ${tz}
 Fecha y hora actual (local): ${localTimeStr}
 Fecha y hora actual (UTC): ${now.toISOString()}
 
@@ -149,10 +172,6 @@ async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
       await memoryService.saveFact(user.id, content, [extracted.document_type, 'imagen']);
     }
 
-    // Responder con el resumen de lo extraído
-    const entityCount = Object.values(extracted.entities || {})
-      .flat().filter(Boolean).length;
-
     // Si hubo error, mostrar mensaje amigable
     if (extracted.error) {
       const errResponse = '❌ Por el momento no pude analizar la imagen debido a una sincronización en el servicio de Google. Por favor, intenta de nuevo en unos minutos.';
@@ -165,7 +184,6 @@ async function processMediaMessage(user, phoneNumber, mediaPayload, mediaType) {
 ✅ *Imagen procesada*
 📄 Tipo: ${extracted.document_type}
 📝 Resumen: ${extracted.summary}
-🔍 Entidades encontradas: ${entityCount}
 
 Todo ha sido guardado en tu memoria. Puedes preguntarme sobre este documento cuando quieras.
     `.trim();

@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { message, scheduled_at, task_id } = req.body;
+    const { message, scheduled_at, task_id, is_recurring, recurrence_rule } = req.body;
 
     if (!message || !scheduled_at) {
       return res.status(400).json({ error: 'message y scheduled_at son requeridos' });
@@ -36,7 +36,9 @@ router.post('/', async (req, res) => {
       req.user.id,
       message,
       new Date(scheduled_at),
-      task_id || null
+      task_id || null,
+      is_recurring || false,
+      recurrence_rule || null
     );
     res.status(201).json(reminder);
   } catch (err) {

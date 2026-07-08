@@ -20,26 +20,58 @@ const pool = new Pool({
 async function runMigration() {
   console.log('⏳ Iniciando migración de base de datos...');
 
-  const migrationPath = path.join(__dirname, 'migrations', '001_initial_schema.sql');
-  if (!fs.existsSync(migrationPath)) {
-    console.error(`❌ No se encontró el archivo de migración en: ${migrationPath}`);
+  const migrationsDir = path.join(__dirname, 'migrations');
+  if (!fs.existsSync(migrationsDir)) {
+    console.error(`❌ No se encontró la carpeta de migraciones en: ${migrationsDir}`);
     process.exit(1);
   }
 
-  const sql = fs.readFileSync(migrationPath, 'utf8');
+  const files = fs.readdirSync(migrationsDir)
+    .filter(file => file.endsWith('.sql'))
+    .sort();
+
+  if (files.length === 0) {
+    console.log('⚠️ No se encontraron archivos de migración (.sql).');
+    await pool.end();
+    return;
+  }
 
   const client = await pool.connect();
   try {
-    console.log('📡 Conectado a PostgreSQL Cloud...');
-    await client.query('BEGIN');
+    console.log('📡 Conectado a PostgreSQL...');
     
-    // Ejecutar el script SQL completo
-    await client.query(sql);
+    for (const file of files) {
+      if (file === '001_initial_schema.sql') {
+        const { rows } = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'memories'
+          );
+        `);
+        if (rows[0].exists) {
+          console.log('⚡ La tabla "memories" ya existe. Omitiendo 001_initial_schema.sql.');
+          continue;
+        }
+      }
+      
+      console.log(`⏳ Ejecutando migración: ${file}...`);
+      const filePath = path.join(migrationsDir, file);
+      const sql = fs.readFileSync(filePath, 'utf8');
+      
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query('COMMIT');
+      console.log(`✅ Migración ${file} completada con éxito.`);
+    }
     
-    await client.query('COMMIT');
-    console.log('✅ Base de datos inicializada correctamente. Tablas y triggers creados.');
+    console.log('✅ Todas las migraciones se han ejecutado correctamente.');
   } catch (err) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (e) {
+      // Ignorar si no hay transacción activa
+    }
     console.error('❌ Error ejecutando la migración:', err.message);
     process.exit(1);
   } finally {

@@ -190,8 +190,10 @@ async function handleQuery(userId, phone, data) {
   } else if (data.query_type === 'reminders' || searchTerm.toLowerCase().includes('recordatorio') || searchTerm.toLowerCase().includes('alarma') || searchTerm.toLowerCase().includes('cola')) {
     const reminders = await reminderService.getUpcomingReminders(userId);
     if (reminders.length > 0) {
+      const { rows } = await db.query('SELECT timezone FROM users WHERE id = $1', [userId]);
+      const tz = rows[0]?.timezone || 'America/Mexico_City';
       const items = reminders.slice(0, 5).map((r, i) => {
-        const localTime = new Date(r.scheduled_at).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+        const localTime = new Date(r.scheduled_at).toLocaleString('es-MX', { timeZone: tz });
         return `${i + 1}. *${r.message}* (Programado: ${localTime})`;
       }).join('\n');
       responseMsg = `⏰ *Tus recordatorios pendientes en cola:*\n\n${items}`;

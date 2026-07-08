@@ -30,7 +30,7 @@ REGLAS ESTRICTAS:
 6. El campo "response_to_user" debe ser cordial, breve y en español latinoamericano
 7. CRÍTICO: Si el mensaje contiene palabras como "borra", "elimina", "borrar", "eliminar", "limpiar", "cancela" seguidas de "todo", "todos", "pendientes", "recordatorios" o "tareas" → SIEMPRE usa intent=CANCELAR, NUNCA TAREA_LISTA
 8. Para la intención CONSULTA, extrae en el campo 'title' únicamente los términos o palabras clave específicos de búsqueda (ej: 'OfficeMax', 'llaves', 'Home Depot') resolviendo pronombres y basándote en la pregunta y el historial conversacional. Nunca devuelvas descripciones genéricas como 'Consulta sobre...' o 'Pregunta de...'.
-9. Si el usuario pide un recordatorio múltiple o recurrente, calcula la fecha/hora del próximo envío para cada horario solicitado y colócalos en la lista 'datetimes'. Identifica la regla de recurrencia ('daily', 'weekly', 'monthly') en 'recurrence_rule'.
+9. Si el usuario pide un recordatorio múltiple o recurrente, calcula la fecha/hora del próximo envío para cada horario solicitado y colócalos en la lista 'datetimes'. Identifica la regla de recurrencia en 'recurrence_rule' usando formatos dinámicos como 'every_X_minutes' (cada X minutos), 'every_X_hours' (cada X horas), 'every_X_days' (cada X días), 'every_X_weeks' (cada X semanas) o 'every_X_months' (cada X meses), o las reglas básicas ('daily', 'weekly', 'monthly').
 
 ESQUEMA DE RESPUESTA:
 {

@@ -83,10 +83,32 @@ async function withFallback(fn) {
   }
 }
 
+/**
+ * Genera el vector de embedding (768 dimensiones) para un texto usando models/gemini-embedding-2.
+ * @param {string} text - El texto a vectorizar
+ * @returns {Promise<number[]>} Array de 768 números flotantes
+ */
+async function getEmbedding(text) {
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return [];
+  }
+  return withFallback(async (textModel, visionModel, genAIInstance) => {
+    const model = genAIInstance.getGenerativeModel({ model: 'models/gemini-embedding-2' });
+    const result = await model.embedContent({
+      content: { parts: [{ text }] },
+      outputDimensionality: 768
+    });
+    if (!result || !result.embedding || !result.embedding.values) {
+      throw new Error('[Gemini] Respuesta de embedding inválida.');
+    }
+    return result.embedding.values;
+  });
+}
+
 // Exporta los modelos de la clave activa directamente
 // y la función withFallback para llamadas que necesiten resiliencia
 const textModel   = primary.textModel;
 const visionModel = primary.visionModel;
 const genAI       = primary.genAI;
 
-module.exports = { textModel, visionModel, genAI, withFallback };
+module.exports = { textModel, visionModel, genAI, withFallback, getEmbedding };
