@@ -86,14 +86,42 @@ async function handleMemory(userId, data) {
 }
 
 async function handleReminder(userId, data) {
-  const datetimes = data.datetimes && data.datetimes.length > 0
+  const rawDatetimes = data.datetimes && data.datetimes.length > 0
     ? data.datetimes
     : (data.datetime ? [data.datetime] : []);
   
   const isRecurring = !!data.recurrence_rule;
   const recurrenceRule = data.recurrence_rule || null;
 
-  for (const dt of datetimes) {
+  // Ordenar y sanitizar fechas válidas
+  const sortedDates = rawDatetimes
+    .map(dt => new Date(dt))
+    .filter(d => !isNaN(d.getTime()))
+    .sort((a, b) => a - b);
+
+  // Eliminar duplicados aproximados (mismo minuto)
+  const uniqueDates = [];
+  for (const d of sortedDates) {
+    const isDuplicate = uniqueDates.some(u => Math.abs(u.getTime() - d.getTime()) < 60000);
+    if (!isDuplicate) {
+      uniqueDates.push(d);
+    }
+  }
+
+  if (uniqueDates.length === 0) return;
+
+  // Si es un recordatorio recurrente con intervalo corto (por minuto u hora),
+  // solo necesitamos programar la PRIMERA ocurrencia. El scheduler se encargará
+  // de reprogramar y calcular las siguientes repeticiones automáticamente.
+  let datetimesToSchedule = uniqueDates;
+  if (isRecurring && recurrenceRule) {
+    const ruleLower = recurrenceRule.toLowerCase();
+    if (ruleLower.includes('minute') || ruleLower.includes('hour') || ruleLower === 'hourly') {
+      datetimesToSchedule = [uniqueDates[0]];
+    }
+  }
+
+  for (const dt of datetimesToSchedule) {
     // Crear tarea si hay descripción de tarea
     let taskId = null;
     if (data.title) {
@@ -105,7 +133,7 @@ async function handleReminder(userId, data) {
     await reminderService.createReminder(
       userId,
       data.description || data.title,
-      new Date(dt),
+      dt,
       taskId,
       isRecurring,
       recurrenceRule
